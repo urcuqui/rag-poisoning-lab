@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Poisoning Security Lab</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; color: #e94560; margin-bottom: 10px; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { background: #16213e; border-radius: 12px; padding: 20px; }
+        .panel h2 { color: #e94560; margin-bottom: 15px; font-size: 1.2em; }
+        .chat-messages { height: 300px; overflow-y: auto; border: 1px solid #333; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #0f0f23; }
+        .message { margin-bottom: 12px; padding: 10px; border-radius: 8px; }
+        .message.user { background: #1a4b8c; margin-left: 20%; }
+        .message.bot { background: #2d2d44; margin-right: 20%; }
+        .message .label { font-size: 0.75em; color: #888; margin-bottom: 4px; }
+        input, textarea { width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0f0f23; color: #eee; margin-bottom: 10px; }
+        button { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .btn-primary { background: #e94560; color: white; }
+        .btn-primary:hover { background: #ff6b6b; }
+        .btn-warning { background: #f39c12; color: white; }
+        .btn-warning:hover { background: #f1c40f; }
+        .btn-danger { background: #c0392b; color: white; }
+        .btn-danger:hover { background: #e74c3c; }
+        .stats { display: flex; gap: 15px; margin-bottom: 15px; }
+        .stat { background: #0f0f23; padding: 10px 15px; border-radius: 8px; text-align: center; flex: 1; }
+        .stat .value { font-size: 1.5em; color: #e94560; font-weight: bold; }
+        .stat .label { font-size: 0.8em; color: #888; }
+        .comments-list { max-height: 200px; overflow-y: auto; border: 1px solid #333; border-radius: 8px; padding: 10px; background: #0f0f23; margin-bottom: 15px; }
+        .comment-item { padding: 8px; background: #2d2d44; margin-bottom: 8px; border-radius: 6px; font-size: 0.9em; border-left: 3px solid #e94560; }
+        .warning-box { background: #4a1a1a; border: 1px solid #e94560; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+        .warning-box h3 { color: #ff6b6b; margin-bottom: 8px; }
+        .loading { opacity: 0.6; pointer-events: none; }
+        .flex-row { display: flex; gap: 10px; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔓 RAG Poisoning Security Lab</h1>
+        <p class="subtitle">Demonstrate how user comments can poison a RAG knowledge base</p>
+        
+        <div class="stats" id="stats">
+            <div class="stat"><div class="value" id="clean-count">-</div><div class="label">Clean Docs</div></div>
+            <div class="stat"><div class="value" id="comment-count">-</div><div class="label">Comments</div></div>
+            <div class="stat"><div class="value" id="total-count">-</div><div class="label">Total Docs</div></div>
+        </div>
+        
+        <div class="grid">
+            <div class="panel">
+                <h2>💬 Chat with Security Bot</h2>
+                <div class="chat-messages" id="chat-messages"></div>
+                <input type="text" id="chat-input" placeholder="Ask about security topics..." onkeypress="if(event.key==='Enter')sendMessage()">
+                <button class="btn-primary" onclick="sendMessage()">Send Message</button>
+            </div>
+            
+            <div class="panel">
+                <h2>📝 Add Comment (Poison Vector)</h2>
+                <div class="warning-box">
+                    <h3>⚠️ Warning</h3>
+                    <p>Comments are added directly to the RAG knowledge base. Malicious comments can poison the bot's responses!</p>
+                </div>
+                <textarea id="comment-input" rows="3" placeholder="Enter a comment to add to the knowledge base..."></textarea>
+                <div class="flex-row">
+                    <button class="btn-warning" onclick="addComment()">Add Comment</button>
+                    <button class="btn-danger" onclick="refreshRAG()">🔄 Refresh (Clear Poison)</button>
+                </div>
+                <h3 style="margin: 15px 0 10px; color: #888; font-size: 0.9em;">Current Comments:</h3>
+                <div class="comments-list" id="comments-list"><em>No comments yet</em></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        async function fetchStats() {
+            const res = await fetch('/api/stats');
+            const data = await res.json();
+            document.getElementById('clean-count').textContent = data.clean_docs;
+            document.getElementById('comment-count').textContent = data.comments;
+            document.getElementById('total-count').textContent = data.total_docs;
+        }
+        async function fetchComments() {
+            const res = await fetch('/api/comments');
+            const data = await res.json();
+            const list = document.getElementById('comments-list');
+            list.innerHTML = data.comments.length ? data.comments.map(c => `<div class="comment-item">${c}</div>`).join('') : '<em>No comments yet</em>';
+        }
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const query = input.value.trim();
+            if (!query) return;
+            const messages = document.getElementById('chat-messages');
+            messages.innerHTML += `<div class="message user"><div class="label">You</div>${query}</div>`;
+            input.value = '';
+            messages.scrollTop = messages.scrollHeight;
+            const res = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({query}) });
+            const data = await res.json();
+            messages.innerHTML += `<div class="message bot"><div class="label">Security Bot</div>${data.response || data.error}</div>`;
+            messages.scrollTop = messages.scrollHeight;
+        }
+        async function addComment() {
+            const input = document.getElementById('comment-input');
+            const comment = input.value.trim();
+            if (!comment) return;
+            await fetch('/api/comment', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({comment}) });
+            input.value = '';
+            fetchStats(); fetchComments();
+        }
+        async function refreshRAG() {
+            await fetch('/api/refresh', { method: 'POST' });
+            fetchStats(); fetchComments();
+            document.getElementById('chat-messages').innerHTML = '<div class="message bot"><div class="label">System</div>Knowledge base refreshed. Poisoned data cleared.</div>';
+        }
+        fetchStats(); fetchComments();
+    </script>
+</body>
+</html>
+
