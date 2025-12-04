@@ -112,7 +112,7 @@
         async function refreshRAG() {
             await fetch('/api/refresh', { method: 'POST' });
             fetchStats(); fetchComments();
-            document.getElementById('chat-messages').innerHTML = '<div class="message bot"><div class="label">System</div>Knowledge base refreshed. Poisoned data cleared.</div>';
+            document.getElementById('chat-messages').innerHTML = '<div class="message bot"><div class="label">System</div>Knowledge base refreshed.</div>';
         }
         fetchStats(); fetchComments();
     </script>
