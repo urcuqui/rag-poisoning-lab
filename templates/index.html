@@ -4,36 +4,119 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RAG Poisoning Security Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        h1 { text-align: center; color: #e94560; margin-bottom: 10px; }
-        .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+        body {
+            font-family: 'Share Tech Mono', 'Fira Code', 'SFMono-Regular', Menlo, monospace;
+            background: radial-gradient(circle at 20% 20%, rgba(0, 255, 102, 0.12), transparent 25%),
+                        radial-gradient(circle at 80% 0%, rgba(0, 255, 170, 0.08), transparent 30%),
+                        linear-gradient(135deg, #010402 0%, #030b05 35%, #010101 100%);
+            color: #d7fbe8;
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 28px 20px 40px; }
+        h1 { text-align: center; color: #76ff9f; margin-bottom: 12px; letter-spacing: 2px; text-shadow: 0 0 18px rgba(118, 255, 159, 0.6); }
+        .subtitle { text-align: center; color: #6abf87; margin-bottom: 32px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .panel { background: #16213e; border-radius: 12px; padding: 20px; }
-        .panel h2 { color: #e94560; margin-bottom: 15px; font-size: 1.2em; }
-        .chat-messages { height: 300px; overflow-y: auto; border: 1px solid #333; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #0f0f23; }
-        .message { margin-bottom: 12px; padding: 10px; border-radius: 8px; }
-        .message.user { background: #1a4b8c; margin-left: 20%; }
-        .message.bot { background: #2d2d44; margin-right: 20%; }
-        .message .label { font-size: 0.75em; color: #888; margin-bottom: 4px; }
-        input, textarea { width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0f0f23; color: #eee; margin-bottom: 10px; }
-        button { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
-        .btn-primary { background: #e94560; color: white; }
-        .btn-primary:hover { background: #ff6b6b; }
-        .btn-warning { background: #f39c12; color: white; }
-        .btn-warning:hover { background: #f1c40f; }
-        .btn-danger { background: #c0392b; color: white; }
-        .btn-danger:hover { background: #e74c3c; }
+        .panel {
+            background: rgba(7, 18, 10, 0.85);
+            border-radius: 14px;
+            padding: 20px;
+            border: 1px solid #0f301c;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 255, 102, 0.05);
+        }
+        .panel h2 { color: #76ff9f; margin-bottom: 15px; font-size: 1.2em; text-transform: uppercase; letter-spacing: 1px; }
+        .chat-messages {
+            height: 320px;
+            overflow-y: auto;
+            border: 1px solid #0f301c;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: linear-gradient(180deg, rgba(0, 10, 5, 0.85), rgba(0, 18, 10, 0.9));
+        }
+        .message { margin-bottom: 12px; padding: 10px; border-radius: 10px; }
+        .message.user {
+            background: linear-gradient(135deg, rgba(0, 255, 170, 0.1), rgba(0, 255, 102, 0.05));
+            border: 1px solid rgba(118, 255, 159, 0.4);
+            margin-left: 18%;
+        }
+        .message.bot {
+            background: linear-gradient(135deg, rgba(0, 25, 12, 0.85), rgba(0, 18, 10, 0.75));
+            border: 1px solid rgba(0, 128, 64, 0.6);
+            margin-right: 18%;
+        }
+        .message .label { font-size: 0.75em; color: #6abf87; margin-bottom: 4px; }
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #0f301c;
+            border-radius: 8px;
+            background: rgba(0, 18, 10, 0.85);
+            color: #d7fbe8;
+            margin-bottom: 10px;
+            box-shadow: inset 0 1px 0 rgba(118, 255, 159, 0.1);
+        }
+        input:focus, textarea:focus { outline: 1px solid #76ff9f; box-shadow: 0 0 12px rgba(118, 255, 159, 0.35); }
+        button {
+            padding: 12px 24px;
+            border: 1px solid #0f301c;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            background: #0a1c10;
+            color: #d7fbe8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { border-color: #39ff14; color: #39ff14; }
+        .btn-primary:hover { background: rgba(57, 255, 20, 0.12); box-shadow: 0 0 18px rgba(57, 255, 20, 0.35); }
+        .btn-warning { border-color: #9ef01a; color: #9ef01a; }
+        .btn-warning:hover { background: rgba(158, 240, 26, 0.12); box-shadow: 0 0 18px rgba(158, 240, 26, 0.35); }
+        .btn-danger { border-color: #ff4d4d; color: #ff4d4d; }
+        .btn-danger:hover { background: rgba(255, 77, 77, 0.12); box-shadow: 0 0 18px rgba(255, 77, 77, 0.35); }
         .stats { display: flex; gap: 15px; margin-bottom: 15px; }
-        .stat { background: #0f0f23; padding: 10px 15px; border-radius: 8px; text-align: center; flex: 1; }
-        .stat .value { font-size: 1.5em; color: #e94560; font-weight: bold; }
-        .stat .label { font-size: 0.8em; color: #888; }
-        .comments-list { max-height: 200px; overflow-y: auto; border: 1px solid #333; border-radius: 8px; padding: 10px; background: #0f0f23; margin-bottom: 15px; }
-        .comment-item { padding: 8px; background: #2d2d44; margin-bottom: 8px; border-radius: 6px; font-size: 0.9em; border-left: 3px solid #e94560; }
-        .warning-box { background: #4a1a1a; border: 1px solid #e94560; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-        .warning-box h3 { color: #ff6b6b; margin-bottom: 8px; }
+        .stat {
+            background: rgba(0, 18, 10, 0.7);
+            padding: 12px 14px;
+            border-radius: 10px;
+            text-align: center;
+            flex: 1;
+            border: 1px solid #0f301c;
+            box-shadow: inset 0 1px 0 rgba(118, 255, 159, 0.1);
+        }
+        .stat .value { font-size: 1.5em; color: #76ff9f; font-weight: bold; }
+        .stat .label { font-size: 0.8em; color: #6abf87; }
+        .comments-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #0f301c;
+            border-radius: 8px;
+            padding: 10px;
+            background: rgba(0, 18, 10, 0.85);
+            margin-bottom: 15px;
+        }
+        .comment-item {
+            padding: 8px;
+            background: rgba(0, 30, 15, 0.85);
+            margin-bottom: 8px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            border-left: 3px solid #39ff14;
+        }
+        .warning-box {
+            background: rgba(20, 4, 4, 0.85);
+            border: 1px solid #ff4d4d;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 12px rgba(255, 77, 77, 0.15);
+        }
+        .warning-box h3 { color: #ff7b7b; margin-bottom: 8px; letter-spacing: 0.5px; }
         .loading { opacity: 0.6; pointer-events: none; }
         .flex-row { display: flex; gap: 10px; }
         @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
@@ -41,8 +124,8 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔓 RAG Poisoning Security Lab</h1>
-        <p class="subtitle">Demonstrate how user comments can poison a RAG knowledge base</p>
+        <h1>RAG Poisoning Security Lab</h1>
+        <p class="subtitle">View of how user comments can poison a RAG knowledge base</p>
         
         <div class="stats" id="stats">
             <div class="stat"><div class="value" id="clean-count">-</div><div class="label">Clean Docs</div></div>
@@ -52,24 +135,24 @@
         
         <div class="grid">
             <div class="panel">
-                <h2>💬 Chat with Security Bot</h2>
+                <h2>Chat with Security Bot</h2>
                 <div class="chat-messages" id="chat-messages"></div>
                 <input type="text" id="chat-input" placeholder="Ask about security topics..." onkeypress="if(event.key==='Enter')sendMessage()">
                 <button class="btn-primary" onclick="sendMessage()">Send Message</button>
             </div>
             
             <div class="panel">
-                <h2>📝 Add Comment (Poison Vector)</h2>
+                <h2>Add Comment (Poison Vector)</h2>
                 <div class="warning-box">
-                    <h3>⚠️ Warning</h3>
+                    <h3>Poisoning Warning</h3>
                     <p>Comments are added directly to the RAG knowledge base. Malicious comments can poison the bot's responses!</p>
                 </div>
                 <textarea id="comment-input" rows="3" placeholder="Enter a comment to add to the knowledge base..."></textarea>
                 <div class="flex-row">
                     <button class="btn-warning" onclick="addComment()">Add Comment</button>
-                    <button class="btn-danger" onclick="refreshRAG()">🔄 Refresh (Clear Poison)</button>
+                    <button class="btn-danger" onclick="refreshRAG()">Refresh (Clear Poison)</button>
                 </div>
-                <h3 style="margin: 15px 0 10px; color: #888; font-size: 0.9em;">Current Comments:</h3>
+                <h3 style="margin: 15px 0 10px; color: #6abf87; font-size: 0.9em;">Current Comments:</h3>
                 <div class="comments-list" id="comments-list"><em>No comments yet</em></div>
             </div>
         </div>
@@ -118,4 +201,3 @@
     </script>
 </body>
 </html>
-
