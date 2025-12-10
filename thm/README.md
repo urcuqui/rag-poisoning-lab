@@ -83,7 +83,20 @@ This mirrors real-world incidents where attackers manipulate AI-driven SOC autom
             Manipulated Answer
 
 
-## 5. Detection & Mitigation Strategies
+## Step-by-Step Walkthrough
+
+1. Run the application
+```
+python app.py
+```
+2. Interact with the security bot
+*Ask questions about RedJack to observe the model’s behavior before poisoning.* 
+3. Review or clean the current documents
+*Understand what legitimate knowledge exists in the vector database.*
+4. Inject poisoned content into the knowledge base
+*Add crafted statements that portray RedJack as benign to manipulate the AI’s responses.*
+
+## Detection & Mitigation Strategies
 
 **Detection**
 
