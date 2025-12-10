@@ -1,6 +1,7 @@
 """RAG Poisoning Security Lab - Flask Application using FAISS + HuggingFace."""
 
 import threading
+from typing import Optional
 from flask import Flask, render_template, request, jsonify
 from langchain_classic.chains import RetrievalQA
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -47,6 +48,8 @@ class RAGSystem:
         self.vectorstore = None
         self.retriever = None
         self.qa = None
+        self.include_clean_docs = True
+        self.current_clean_docs = 0
         self._rebuild_vectorstore()
 
     def _build_llm(self):
@@ -62,14 +65,29 @@ class RAGSystem:
         )
         return HuggingFacePipeline(pipeline=hf_pipe)
 
-    def _rebuild_vectorstore(self):
+    def _rebuild_vectorstore(self, include_clean: Optional[bool] = None):
         """Recreate the FAISS store and retrieval chain with current docs."""
-        documents = CLEAN_DOCUMENTS + comments_store
+        if include_clean is None:
+            include_clean = self.include_clean_docs
+        else:
+            self.include_clean_docs = include_clean
+
+        documents = []
+        if include_clean:
+            documents.extend(CLEAN_DOCUMENTS)
+            self.current_clean_docs = len(CLEAN_DOCUMENTS)
+        else:
+            self.current_clean_docs = 0
+        documents.extend(comments_store)
+
+        if not documents:
+            self.vectorstore = None
+            self.retriever = None
+            self.qa = None
+            return
+
         self.vectorstore = FAISS.from_texts(documents, self.embedder)
-        self.retriever = self.vectorstore.as_retriever(
-            search_type="similarity",
-            search_kwargs={"k": 3},
-        )
+        self.retriever = self.vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
         self.qa = RetrievalQA.from_chain_type(
             llm=self.llm,
             retriever=self.retriever,
@@ -83,9 +101,13 @@ class RAGSystem:
         self._rebuild_vectorstore()
 
     def refresh(self):
-        """Clear comments and rebuild with clean docs only."""
+        """Clear comments and rebuild without clean docs."""
         comments_store.clear()
-        self._rebuild_vectorstore()
+        # Reset vector components so FAISS is rebuilt without clean docs
+        self.vectorstore = None
+        self.retriever = None
+        self.qa = None
+        self._rebuild_vectorstore(include_clean=False)
 
     def ask(self, query: str) -> str:
         """Query the RAG system and generate a response."""
@@ -93,6 +115,8 @@ class RAGSystem:
             return "No query provided."
 
         try:
+            if not self.qa:
+                return "Knowledge base is empty. Please add data first."
             return self.qa.run(query)
         except Exception as exc:
             return f"Error generating answer: {exc}"
@@ -100,7 +124,7 @@ class RAGSystem:
     def get_stats(self) -> dict:
         """Get current system stats."""
         return {
-            "clean_docs": len(CLEAN_DOCUMENTS),
+            "clean_docs": self.current_clean_docs,
             "comments": len(comments_store),
             "total_docs": self.vectorstore.index.ntotal if self.vectorstore else 0,
         }

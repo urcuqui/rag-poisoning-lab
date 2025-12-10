@@ -150,7 +150,7 @@
                 <textarea id="comment-input" rows="3" placeholder="Enter a comment to add to the knowledge base..."></textarea>
                 <div class="flex-row">
                     <button class="btn-warning" onclick="addComment()">Add Comment</button>
-                    <button class="btn-danger" onclick="refreshRAG()">Refresh (Clear Poison)</button>
+                    <button class="btn-danger" onclick="refreshRAG()">Refresh (Clear Docs)</button>
                 </div>
                 <h3 style="margin: 15px 0 10px; color: #6abf87; font-size: 0.9em;">Current Comments:</h3>
                 <div class="comments-list" id="comments-list"><em>No comments yet</em></div>
@@ -158,12 +158,16 @@
         </div>
     </div>
     <script>
+        function updateStatsDisplay(stats) {
+            if (!stats) return;
+            document.getElementById('clean-count').textContent = stats.clean_docs;
+            document.getElementById('comment-count').textContent = stats.comments;
+            document.getElementById('total-count').textContent = stats.total_docs;
+        }
         async function fetchStats() {
             const res = await fetch('/api/stats');
             const data = await res.json();
-            document.getElementById('clean-count').textContent = data.clean_docs;
-            document.getElementById('comment-count').textContent = data.comments;
-            document.getElementById('total-count').textContent = data.total_docs;
+            updateStatsDisplay(data);
         }
         async function fetchComments() {
             const res = await fetch('/api/comments');
@@ -188,13 +192,17 @@
             const input = document.getElementById('comment-input');
             const comment = input.value.trim();
             if (!comment) return;
-            await fetch('/api/comment', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({comment}) });
+            const res = await fetch('/api/comment', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({comment}) });
+            const data = await res.json();
             input.value = '';
-            fetchStats(); fetchComments();
+            updateStatsDisplay(data.stats);
+            fetchComments();
         }
         async function refreshRAG() {
-            await fetch('/api/refresh', { method: 'POST' });
-            fetchStats(); fetchComments();
+            const res = await fetch('/api/refresh', { method: 'POST' });
+            const data = await res.json();
+            updateStatsDisplay(data.stats);
+            fetchComments();
             document.getElementById('chat-messages').innerHTML = '<div class="message bot"><div class="label">System</div>Knowledge base refreshed.</div>';
         }
         fetchStats(); fetchComments();
