@@ -55,8 +55,8 @@ class RAGSystem:
     def _build_llm(self):
         """Load the seq2seq model and wrap it for LangChain."""
         model_name = "google/flan-t5-small"
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, local_files_only=True)
         hf_pipe = pipeline(
             "text2text-generation",
             model=model,
